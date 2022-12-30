@@ -169,6 +169,7 @@ growproc(int n)
     if((sz = deallocuvm(curproc->pgdir, sz, sz + n)) == 0)
       return -1;
   }
+
   curproc->sz = sz;
   switchuvm(curproc);
   return 0;
@@ -212,20 +213,6 @@ fork(void)
 
   pid = np->pid;
 
-  // Create and copy parents swap
-  createswap(np);
-
-  if(curproc->pid != 1){ // cant copy init's swap
-    char buf[PGSIZE/2]; // buf of size PGSIZE acts weird
-    int n, off=0;
-    while((n = readswap(curproc, buf, PGSIZE/2, off))){
-      if(writeswap(np, buf, n, off) != n)
-        panic("fork: error copying swap");
-      off += n;
-    }
-
-  }
-
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
@@ -245,10 +232,6 @@ exit(void)
   struct proc *p;
   int fd;
 
-//    char buf[9];
-//    if(!readswap(curproc, buf, 9, 0))
-//        panic("bida");
-
   if(curproc == initproc)
     panic("init exiting");
 
@@ -259,9 +242,6 @@ exit(void)
       curproc->ofile[fd] = 0;
     }
   }
-    // Remove swap file
-  if(deleteswap(curproc))
-    panic("could not delete swap file");
 
   begin_op();
   iput(curproc->cwd);
@@ -281,8 +261,6 @@ exit(void)
         wakeup1(initproc);
     }
   }
-
-
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;

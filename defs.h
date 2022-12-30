@@ -4,12 +4,14 @@ struct file;
 struct inode;
 struct pipe;
 struct proc;
-struct procpage;
 struct rtcdate;
 struct spinlock;
 struct sleeplock;
 struct stat;
 struct superblock;
+struct page;
+
+typedef uint pte_t;
 
 // bio.c
 void            binit(void);
@@ -123,11 +125,12 @@ void            wakeup(void*);
 void            yield(void);
 
 // swap.c
-int             createswap(struct proc* p);
-int             deleteswap(struct proc* p);
-int             readswap(struct proc* p, char* buf, int size, uint offset);
-int             writeswap(struct proc* p, char* buf, int size, uint offset);
-int             swaptodisk(struct proc* p, uint index);
+void            swapinit();
+int             addtopglist(char* va, pde_t* pgdir);
+int             rmfrompglist(const char* va, pde_t* pgdir);
+int             swaptodisk();
+int             loadfromswap(const char* va, const pde_t* pgdir);
+pte_t*          va2pte(const char* va, pde_t* pgdir, int alloc);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

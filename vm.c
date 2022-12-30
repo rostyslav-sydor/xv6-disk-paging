@@ -6,6 +6,7 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+#include "swap.h"
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
@@ -174,7 +175,7 @@ switchuvm(struct proc *p)
   mycpu()->ts.iomb = (ushort) 0xFFFF;
   ltr(SEG_TSS << 3);
   lcr3(V2P(p->pgdir));  // switch to process's address space
-      popcli();
+  popcli();
 }
 
 // Load the initcode into address 0 of pgdir.
@@ -223,33 +224,37 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
   char *mem;
   uint a;
-  struct proc* p = myproc();
   if(newsz >= KERNBASE)
     return 0;
   if(newsz < oldsz)
     return oldsz;
 
   a = PGROUNDUP(oldsz);
-  for(; a < newsz; a += PGSIZE){
+  for(; a < newsz; a += PGSIZE) {
     mem = kalloc();
-    if(mem == 0){
+    if (mem == 0) {
       cprintf("allocuvm out of memory\n");
       deallocuvm(pgdir, newsz, oldsz);
       return 0;
     }
 
-    for(int i = 0; i < 32; ++i){
-      if(!p->pages[i].ispresent){
-        p->pages[i].addr = mem;
-        p->pages[i].ispresent = 1;
-      }
-    }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, newsz, oldsz);
       kfree(mem);
       return 0;
+    }
+
+    if(a > 0x2000) { // dirty trick to avoid dealing with stack guard pages
+      if(myproc()->pid != 1 && myproc()->pid != 2){
+
+        addtopglist((char*)a, pgdir);
+
+        swaptodisk(); // probably temporary
+
+        lcr3(V2P(myproc()->pgdir)); // update table
+      }
     }
   }
   return newsz;
@@ -278,7 +283,10 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       if(pa == 0)
         panic("kfree");
       char *v = P2V(pa);
-      kfree(v);
+
+      if((*pte & PTE_S) == 0) // if swapped, page is already freed
+        kfree(v);
+      rmfrompglist((char*)a, pgdir);
       *pte = 0;
     }
   }
@@ -359,8 +367,12 @@ uva2ka(pde_t *pgdir, char *uva)
   pte_t *pte;
 
   pte = walkpgdir(pgdir, uva, 0);
-  if((*pte & PTE_P) == 0)
-    return 0;
+  if((*pte & PTE_P) == 0){
+    if((*pte & PTE_S) == 0 || !loadfromswap(uva, pgdir))
+      return 0;
+  }
+
+
   if((*pte & PTE_U) == 0)
     return 0;
   return (char*)P2V(PTE_ADDR(*pte));

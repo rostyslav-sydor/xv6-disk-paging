@@ -34,13 +34,6 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
-struct procpage {
-  char* addr;
-  int isswapped;
-  int ispresent;
-  uint diskoffset;
-};
-
 // Per-process state
 struct proc {
   uint sz;                     // Size of process memory (bytes)
@@ -56,9 +49,6 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  struct file *swap;           // Process swap file
-  struct procpage pages[32];   // Track used pages
-  int activepages;             // Limit for pages before swap for testing
 };
 
 // Process memory is laid out contiguously, low addresses first:

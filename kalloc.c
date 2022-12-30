@@ -8,6 +8,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "spinlock.h"
+#include "proc.h"
 
 void freerange(void *vstart, void *vend);
 extern char end[]; // first address after kernel loaded from ELF file
@@ -89,6 +90,14 @@ kalloc(void)
   r = kmem.freelist;
   if(r)
     kmem.freelist = r->next;
+  else{ // if not enough memory, try swapping some pages
+    for(int i = 0; i < 4; ++i){
+      swaptodisk();
+    }
+    r = kmem.freelist;
+    if(r)
+      kmem.freelist = r->next;
+  }
   if(kmem.use_lock)
     release(&kmem.lock);
   return (char*)r;

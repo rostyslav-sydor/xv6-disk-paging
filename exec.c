@@ -18,7 +18,6 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
-
   begin_op();
 
   if((ip = namei(path)) == 0){
@@ -34,7 +33,6 @@ exec(char *path, char **argv)
     goto bad;
   if(elf.magic != ELF_MAGIC)
     goto bad;
-
   if((pgdir = setupkvm()) == 0)
     goto bad;
 
@@ -100,21 +98,6 @@ exec(char *path, char **argv)
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
   switchuvm(curproc);
-
-  //Change swap file inherited from parent
-  if(curproc->pid > 2){
-    deleteswap(curproc);
-    createswap(curproc);
-    char buf[9] = "privet!\n\0";
-    writeswap(curproc, buf, 9, 0);
-  }
-
-  //init page list
-  for(int j = 0; j < 32; ++j){
-    memset(&curproc->pages[i], 0, sizeof(struct procpage));
-  }
-
-  curproc->activepages = 0;
 
   freevm(oldpgdir);
   return 0;

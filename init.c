@@ -11,6 +11,8 @@ int
 main(void)
 {
   int pid, wpid;
+  int swapfd = open(".swap", O_CREATE | O_RDWR); // setup swap file
+  close(swapfd);
 
   if(open("console", O_RDWR) < 0){
     mknod("console", 1, 1);

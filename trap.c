@@ -7,6 +7,8 @@
 #include "x86.h"
 #include "traps.h"
 #include "spinlock.h"
+#include "swap.h"
+
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -46,6 +48,9 @@ trap(struct trapframe *tf)
     return;
   }
 
+  char* va = 0;
+  struct proc* p;
+
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
@@ -77,6 +82,17 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+
+  case T_PGFLT:
+    if((p = myproc()) == 0)
+      panic("segmentation fault: PGFLT in kernel");
+    va = (char*) rcr2();
+
+    pte_t* pa = va2pte(va, p->pgdir, 0);
+
+    if(*pa & PTE_S && loadfromswap(va, p->pgdir)) // if could not load from disk, this is hard page fault
+      break;
+    cprintf("page fault, addr: 0x%x, pgdir: 0x%x, supposed physical address: 0x%x\n", va, p->pgdir, pa);
 
   //PAGEBREAK: 13
   default:
