@@ -1,3 +1,13 @@
+Support of disk swapping for xv6 using NRU algorithm.
+
+Made as semester project for operating systems course.
+
+<br>
+<br>
+
+ORIGINAL README
+---------------------
+
 NOTE: we have stopped maintaining the x86 version of xv6, and switched
 our efforts to the RISC-V version
 (https://github.com/mit-pdos/xv6-riscv.git)
